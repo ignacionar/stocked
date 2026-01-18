@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+
+  generatedFileExtension = "ts"
+  importFileExtension    = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER  @map("USER")
+  ADMIN @map("ADMIN")
+  OWNER @map("OWNER")
+}
+
+enum Plan {
+  BASIC      @map("BASIC")
+  PRO        @map("PRO")
+  ENTERPRISE @map("ENTERPRISE")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String
+  emailVerified Boolean?       @default(false)
+  image         String?
+  occupation    String
+  role          Role           @default(USER)
+  plan          Plan           @default(BASIC)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  commerces     UserCommerce[]
+  invoiceJobs   InvoiceJob[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+model Stock {
+  id         String   @id @default(uuid())
+  name       String
+  price      Float
+  quantity   Int
+  measure    String
+  supplier   String
+  commerceId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  commerce Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+
+  @@map("stock")
+}
+
+model UserCommerce {
+  userId     String
+  commerceId String
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commerce Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, commerceId])
+  @@index([userId])
+  @@index([commerceId])
+  @@map("user_commerce")
+}
+
+model Commerce {
+  id       String @id @default(uuid())
+  name     String
+  location String
+
+  users      UserCommerce[]
+  stockItems Stock[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("commerce")
+}
+
+model InvoiceJob {
+  id         String    @id @default(cuid())
+  commerceId String
+  status     JobStatus @default(PENDING)
+  response   String?   @db.Text
+  error      String?
+  userId     String
+  filesCount Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_job")
+}
+
+enum JobStatus {
+  PENDING    @map("PENDING")
+  PROCESSING @map("PROCESSING")
+  COMPLETED  @map("COMPLETED")
+  FAILED     @map("FAILED")
+  INVALID    @map("INVALID")
+  APPROVED   @map("APPROVED")
+}
